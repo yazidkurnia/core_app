@@ -1,5 +1,8 @@
 <?php
 
+// Suppress PHP 8.4 deprecation warnings temporarily
+error_reporting(E_ALL & ~E_DEPRECATED);
+
 /*
 |--------------------------------------------------------------------------
 | Create The Application
