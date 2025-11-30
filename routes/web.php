@@ -19,8 +19,8 @@ Route::get('/', function () {
 });
 
 // Dashboard Route
-Route::get('/dashboard', [DashboardController::class, 'index'])
-    ->middleware(['auth'])
-    ->name('dashboard');
+Route::middleware(['auth', 'role:admin'])->group(function () {
+    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+});
 
 require __DIR__.'/auth.php';
