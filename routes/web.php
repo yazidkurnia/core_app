@@ -1,7 +1,9 @@
 <?php
 
-use App\Http\Controllers\DashboardController;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\Domains\ManageUser\ManageUserController;
+use App\Http\Controllers\Domains\ManageUser\ApiDataTable;
 
 /*
 |--------------------------------------------------------------------------
@@ -19,8 +21,10 @@ Route::get('/', function () {
 });
 
 // Dashboard Route
-Route::middleware(['auth', 'role:admin'])->group(function () {
+Route::middleware(['auth', 'role:Administrator'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    Route::get('/management/users', [ManageUserController::class, 'index'])->name('manage.users');
+    Route::get('/management/users/datatable', [ApiDataTable::class, 'getUsersData'])->name('manage.users.datatable');
 });
 
 require __DIR__.'/auth.php';
