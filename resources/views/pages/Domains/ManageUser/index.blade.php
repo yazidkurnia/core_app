@@ -23,16 +23,12 @@
                     </div>
                     <div class="card-body">
                         <div class="table-responsive">
-                            <table class="table table-striped table-hover" id="users-table">
+                            <table class="table table-striped table-hover" id="{{ $dataTableConfig['tableId'] }}">
                                 <thead>
                                     <tr>
-                                        <th>No</th>
-                                        <th>Nama</th>
-                                        <th>Email</th>
-                                        <th>Role</th>
-                                        <th>Status</th>
-                                        <th>Tanggal Dibuat</th>
-                                        <th>Aksi</th>
+                                        @foreach($dataTableConfig['columns'] as $column)
+                                            <th>{{ $column['label'] }}</th>
+                                        @endforeach
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -58,83 +54,102 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment.min.js"></script>
 
     <script>
-        $(document).ready(function() {
-            // Inisialisasi DataTable menggunakan DataTableHelper
-            var usersTable = DataTableHelper.init('users-table', {
-                ajax: {
-                    url: '{{ route('manage.users.datatable') }}',
-                    type: 'GET'
-                },
-                columns: [
-                    {
-                        data: null,
-                        searchable: false,
-                        orderable: false,
-                        render: function(data, type, row, meta) {
-                            return meta.row + meta.settings._iDisplayStart + 1;
-                        }
-                    },
-                    {
-                        data: 'name',
-                        name: 'name'
-                    },
-                    {
-                        data: 'email',
-                        name: 'email'
-                    },
-                    {
-                        data: 'role',
-                        name: 'role'
-                    },
-                    {
-                        data: 'status',
-                        name: 'status',
-                        render: DataTableHelper.formatStatus({
-                            'active': {label: 'Aktif', class: 'success'},
-                            'inactive': {label: 'Tidak Aktif', class: 'danger'},
-                            'pending': {label: 'Pending', class: 'warning'}
-                        })
-                    },
-                    {
-                        data: 'created_at',
-                        name: 'created_at',
-                        render: DataTableHelper.formatDate('DD/MM/YYYY HH:mm')
-                    },
-                    {
-                        data: 'action',
-                        name: 'action',
-                        searchable: false,
-                        orderable: false,
-                        render: DataTableHelper.actionButtons({
-                            view: true,
-                            edit: true,
-                            delete: true
-                        })
-                    }
-                ],
-                order: [[1, 'asc']]
-            });
+        // Konfigurasi DataTable dari controller
+        const dataTableConfig = @json($dataTableConfig);
 
-            // Bind action button events
-            DataTableHelper.bindActions('users-table', {
-                view: function(id) {
-                    console.log('View user:', id);
-                    // TODO: Implement view functionality
-                    alert('View user ID: ' + id);
-                },
-                edit: function(id) {
-                    console.log('Edit user:', id);
-                    // TODO: Implement edit functionality
-                    alert('Edit user ID: ' + id);
-                },
-                delete: function(id) {
-                    console.log('Delete user:', id);
-                    if (confirm('Apakah Anda yakin ingin menghapus user ini?')) {
-                        // TODO: Implement delete functionality
-                        alert('Delete user ID: ' + id);
+        $(document).ready(function() {
+            // Build columns configuration
+            const columns = dataTableConfig.columns.map(column => {
+                let columnConfig = {
+                    data: column.data,
+                    name: column.name,
+                    searchable: column.searchable,
+                    orderable: column.orderable
+                };
+
+                // Handle different render types
+                if (column.render) {
+                    switch(column.render) {
+                        case 'rowNumber':
+                            columnConfig.render = function(data, type, row, meta) {
+                                return meta.row + meta.settings._iDisplayStart + 1;
+                            };
+                            break;
+                        case 'status':
+                            columnConfig.render = DataTableHelper.formatStatus(column.statusMap);
+                            break;
+                        case 'date':
+                            columnConfig.render = DataTableHelper.formatDate(column.dateFormat);
+                            break;
+                        case 'actions':
+                            columnConfig.render = DataTableHelper.actionButtons(column.buttons);
+                            break;
                     }
                 }
+
+                return columnConfig;
             });
+
+            // Inisialisasi DataTable menggunakan DataTableHelper
+            const usersTable = DataTableHelper.init(dataTableConfig.tableId, {
+                ajax: {
+                    url: dataTableConfig.ajaxUrl,
+                    type: 'GET'
+                },
+                columns: columns,
+                order: dataTableConfig.order,
+                pageLength: dataTableConfig.pageLength
+            });
+
+            // Build action callbacks from config
+            const actionCallbacks = {};
+
+            if (dataTableConfig.actions.view && dataTableConfig.actions.view.enabled) {
+                actionCallbacks.view = function(id) {
+                    console.log('View user:', id);
+                    // TODO: Implement view functionality
+                    window.location.href = dataTableConfig.actions.view.url + '/' + id;
+                };
+            }
+
+            if (dataTableConfig.actions.edit && dataTableConfig.actions.edit.enabled) {
+                actionCallbacks.edit = function(id) {
+                    console.log('Edit user:', id);
+                    // TODO: Implement edit functionality
+                    window.location.href = dataTableConfig.actions.edit.url + '/' + id;
+                };
+            }
+
+            if (dataTableConfig.actions.delete && dataTableConfig.actions.delete.enabled) {
+                actionCallbacks.delete = function(id) {
+                    console.log('Delete user:', id);
+                    const confirmMsg = dataTableConfig.actions.delete.confirmMessage ||
+                                      'Apakah Anda yakin ingin menghapus data ini?';
+
+                    if (dataTableConfig.actions.delete.confirm && !confirm(confirmMsg)) {
+                        return;
+                    }
+
+                    // TODO: Implement delete functionality with AJAX
+                    $.ajax({
+                        url: dataTableConfig.actions.delete.url + '/' + id,
+                        type: 'DELETE',
+                        headers: {
+                            'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                        },
+                        success: function(response) {
+                            alert('User berhasil dihapus');
+                            DataTableHelper.reload(usersTable, false);
+                        },
+                        error: function(xhr) {
+                            alert('Gagal menghapus user: ' + xhr.responseJSON?.message);
+                        }
+                    });
+                };
+            }
+
+            // Bind action button events
+            DataTableHelper.bindActions(dataTableConfig.tableId, actionCallbacks);
 
             // Button tambah user
             $('#btn-add').on('click', function() {
